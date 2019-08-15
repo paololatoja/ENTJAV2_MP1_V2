@@ -32,7 +32,7 @@ public class ProcessOrder extends HttpServlet {
 		
 		User user = new User(firstName, lastName, creditCardNumber, shippingAddress);
 		
-		ProcessOrderStatus = new Order().processOrder();
+		ProcessOrderStatus = new Order().processOrder(user);
 		System.out.println("ORDER BEING PROCESSED....");
 		
 		if(ProcessOrderStatus) {

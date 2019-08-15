@@ -4,14 +4,24 @@ import java.text.SimpleDateFormat;
 import java.util.ArrayList;
 import java.util.Date;
 
+import javax.servlet.ServletContext;
+
+import exceptions.*;
+
 public class Order implements FireshipOnlineOrdering {
 	private User user;
 	public static ArrayList<Product> cart;
 	private float vatRate;
 	private double VAT;
-	private boolean creditCardStatus = false;
-	private String dateOrdered;
+	
+	private String dateOrdered;  //PDF Date receipt
 	public String creditCard;
+	public String userFullName;
+	public String shippingAddress;
+	
+	// Validation
+	private boolean creditCardStatus = false;
+	public boolean fullyValidated = false;
 	
 	// Computed Fields
 	private double grossPrice; 		// (SUBTOTAL)
@@ -21,50 +31,58 @@ public class Order implements FireshipOnlineOrdering {
 	
 	// Def. Constructor
 	public Order() {
-		cart = new ArrayList<Product>();
+		
 	}
 	
-	
-	public Order(String cardNum) {
-		creditCard = cardNum;
-	}
 	
 	
 	
 	/* -------------------------------------------- INTERFACE METHODS -------------------------------------------- */
 	@Override
 	public void validateCreditCard() {
-		if(creditCard.length() == 16) {
-			int s1 = 0, s2 = 0;
-	        String reverse = new StringBuffer(creditCard).reverse().toString();
-	        
-	        for(int i = 0 ;i < reverse.length();i++) {
-	            int digit = Character.digit(reverse.charAt(i), 10);
-	            
-	            if(i % 2 == 0) {	//this is for odd digits, they are 1-indexed in the algorithm
-	                s1 += digit;
-	                
-	            } else {	
-	                s2 += 2 * digit;	//add 2 * digit for 0-4, add 2 * digit - 9 for 5-9
-	                
-	                if(digit >= 5){
-	                    s2 -= 9;
-	                }
-	            }
-	        }
-	        if ((s1 + s2) % 10 == 0) {
-	        	creditCardStatus = true; // s1 + s2 = 100
-	        } else {
-	        	System.err.println("cardStatus = FALSE");  
-	        	System.err.println("NOT VALID CARD NUMBER"); //replace with User-Defined Exception
-	        	// sendRedirect/Forward
-	        }
-		} else {
-			System.err.println("INVALID CARD LENGTH"); //replace with User-Defined Exception
-			System.err.println("CreditCard Length != 16"); //replace with User-Defined Exception
-			// sendRedirect/Forward
+		
+		try {
+			if(creditCard.length() == 16) {
+				int s1 = 0, s2 = 0;
+		        String reverse = new StringBuffer(creditCard).reverse().toString();
+		        
+		        for(int i = 0 ;i < reverse.length();i++) {
+		            int digit = Character.digit(reverse.charAt(i), 10);
+		            
+		            if(i % 2 == 0) {	//this is for odd digits, they are 1-indexed in the algorithm
+		                s1 += digit;
+		                
+		            } else {	
+		                s2 += 2 * digit;	//add 2 * digit for 0-4, add 2 * digit - 9 for 5-9
+		                
+		                if(digit >= 5){
+		                    s2 -= 9;
+		                }
+		            }
+		        }
+		        if ((s1 + s2) % 10 == 0) {
+		        	creditCardStatus = true; // s1 + s2 = 100
+		        } else {
+//		        	System.err.println("cardStatus = FALSE");  
+		        	throw new InvalidCardNumberException(); 
+		        	// sendRedirect/Forward
+		        } 
+			} else {
+//				System.err.println("INVALID CARD LENGTH");
+				throw new InvalidCardLengthException(); //CreditCard Length != 16
+				// sendRedirect/Forward
+			}
+		} catch (InvalidCardNumberException icne) {
+			System.err.println(icne.getMessage());
+		} catch (InvalidCardLengthException icle) {
+			System.err.println(icle.getMessage());
+		} catch (Exception e) {
+			e.printStackTrace();
+			System.err.println("Exception error printStackTrace: " + e.getMessage());
 		}
+		
 	}
+	
 	@Override
 	public void computeGrossPay() {
 		for(Product item : cart) {
@@ -77,7 +95,7 @@ public class Order implements FireshipOnlineOrdering {
 	}
 	@Override
 	public void generatePDFReceipt() {
-		// TODO Auto-generated method stub
+		// User Details + Order Summary + Recorded Ordered items + Shop Details
 		
 	}
 	@Override
@@ -86,13 +104,36 @@ public class Order implements FireshipOnlineOrdering {
 	}
 	@Override
 	public void printPDFSalesReport() {
-		
+		// generate PDF in directory
 	}
 	/* ---------------------------------------------------------------------------------------------------------- */
 	
 	
 	
-	
+	// FULL ORDER VALIDATION
+	public void fullyValidated() {
+		
+		try {
+			// quantity item must be valid, must not be zero or negative
+			if (quantityItem == valid && quantityItem >= 0) {  // read each cart item's quantity value and compare?
+				validateCreditCard();
+				
+				if (creditCardStatus) {
+					fullyValidated = true;
+				}
+				
+			} else {
+				// order quantity ERROR  --> User Defined Exception
+				throw new InvalidQuantityItemException();
+				// Redirect
+			}
+		} catch (InvalidQuantityItemException iqie) {
+			System.err.println(iqie.getMessage());
+		} catch (Exception e) {
+			e.printStackTrace();
+			System.err.println("Exception printStackTrace: " + e.getMessage());
+		}
+	}
 	
 	
 
@@ -163,16 +204,21 @@ public class Order implements FireshipOnlineOrdering {
 	}
 	
 	// TRIGGERED WHEN PAY BUTTON IS CLICKED ----------------------------------------------------------------------------------------------------------------------- >
-	public boolean processOrder() {
+	public boolean processOrder(User user) {
 		boolean orderStatus = false;
-		// set user details and credit card
+		// get user details and credit card
+		userFullName = user.getFirstName() + " " + user.getLastName();
+		creditCard = user.getCreditCardNumber();
+		shippingAddress = user.getShippingAddress();
 		
-		// get cart items  --> saved in session/cookies?
 		
+		// get cart items  --> servletContext persistence, used for pdf
+//		PDF pdf = new PDF(getCart(), userDetails, shopDetails);
+//		getCart()
 		
 		// validate Order quantity, if valid ---> validate creditCard
-		validateCreditCard();
-		if (creditCardStatus) {
+		fullyValidated();  // ---> Create full validation
+		if (fullyValidated) {
 			// set date Ordered --> PDF receipt
 			// orderStatus = true;
 		}		
